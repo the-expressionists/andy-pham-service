@@ -19,15 +19,15 @@ var random = {
     return faker.random.number(5)
   },
   productID: function() {
-    return faker.random.number({'min': 1, 'max': 100})
-  }
+    return faker.random.number(500)
+  },
   image: function() {
     return `https://loremflickr.com/320/240?${faker.random.word()}`
   }
 }
 
 
-const similarProductSchema = new mongoose.Schema({
+const productSchema = new mongoose.Schema({
   productID: {type: Number, default: random.productID},
   itemID: {type: String, default: random.itemID},
   price: {type: Number, default: random.price},
@@ -37,12 +37,10 @@ const similarProductSchema = new mongoose.Schema({
   color: {type: String, default: faker.commerce.color},
   carouselImages: {
     main: {
-      type: String,
-      default: random.image
+      type: String, default: random.image
     },
     hover: {
-      type: String,
-      default: random.image
+      type: String, default: random.image
     }
   },
   variants: {type: Boolean, default: faker.random.boolean},
@@ -52,6 +50,17 @@ const similarProductSchema = new mongoose.Schema({
   name: {type: String, default: faker.commerce.productName}
 });
 
+productSchema.index({productID: 1, price: 1});
+productSchema.index({productID: 1, averageRating: 1});
+productSchema.index({productID: 1, category: 1});
+productSchema.index({productID: 1, color: 1});
+productSchema.index({productID: 1, liked: 1});
+productSchema.index({productID: 1, isSale: 1});
+productSchema.index({productID: 1, isFresh: 1});
+
 const SimilarProduct = mongoose.model('product', productSchema);
 
-module.exports.SimilarProduct = SimilarProduct;
+module.exports = {
+  SimilarProduct: SimilarProduct,
+  random: random
+}

@@ -1,77 +1,73 @@
 const mongoose = require('mongoose');
 const db = require('./database.js');
+const fs = require('fs').promises;
+const child_process = require('child_process');
 
-let seedDatabase = async () => {
-  let batch = 1;
-  console.time('total');
-  for (var i = 0; i < 143; i++) {
-    // var emptyArray = new Array(50000);
-    // emptyArray.fill(new db.Product());
-    console.log(`seeding batch #${batch}`);
-    console.time('seeding');
-    await db.Product.insertMany(Array.apply(null, Array(70000)))
-    .then(() => {
-      batch++;
-      console.timeEnd('seeding');
-    })
-    .catch((error) => {
-      console.log(error);
-    })
-    // .then(() => {
-    //   buckets()
-    // })
-    // .catch((error) => {
-    //   console.error(error);
-    // })
-  }
-console.timeEnd('total');
+const resetCrg = () => {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+}
+const writeProgress = (prog, limit) => {
+  resetCrg();
+  let tenth = (prog / limit * 10);
+  let progBar = ('[' + '='.repeat(tenth * 2) + '>'.repeat(tenth < 10)).padEnd(21) + ']';
+  process.stdout.write(`Progress: ${(tenth * 10).toFixed(0)}%`.padEnd(20) + progBar);
 }
 
+const endProgress = () => {
+  resetCrg();
+  process.stdout.write(`Progress: 100%`.padEnd(20) + `[${'='.repeat(20)}]\n`);
+}
 
-// Sets up an array with numbers from 0 to 100
-var boundaries = [...Array(101).keys()];
+let createDocument = () => {
+  let documents = [];
+  for (var i = 0; i < 500000; i++) {
+    documents.push({
+      productID: db.random.productID(),
+      itemID: db.random.itemID(),
+      price: db.random.price(),
+      reviews: db.random.reviews(),
+      averageRating: db.random.averageRating(),
+      category: faker.commerce.department(),
+      color: faker.commerce.color(),
+      carouselImages: {
+        main: db.random.image(),
+        hover: db.random.image()
+      },
+      variants: faker.random.boolean(),
+      liked: faker.random.boolean(),
+      isSale: faker.random.boolean(),
+      name: faker.commerce.productName()
+    })
+  }
+  return documents;
+}
 
-// Bucketing still needs work
-var buckets = () => {
-  console.time('bucket');
-  db.SimilarProduct.aggregate([
-    {
-      $bucket: {
-        groupBy: '$productID',
-        boundaries: boundaries, // Groups the documents based on their productID property for a value inside of the boundaries array
-        default: "Other", // If any document's groupBy property's value isn't in the boundaries, group those outliers together
-        output: {
-          "count": { $sum: 1}, // count propery increases by one for every document grouped into this bucket
-          "products" : { // Creates a products array within the bucket
-            $push: { // Pushes an object containing the grouped document's info
-              "category": "$category",
-              "color": "$color",
-              "price": "$price",
-              "reviews": "$reviews",
-              "averageRating": "$averageRating",
-              "carouselImages": "$carouselImages",
-              "variants": "$variants",
-              "liked": "$liked",
-              "isSale": "$isSale",
-              "isFresh": "$isFresh",
-              "name": "$name",
-              "productID": "$productID",
-              "itemID": "$itemID"
-            }
-          }
-        }
-      }
-    },
-    {
-      $out: "products" // saves the bucket in the specified collection, if it exists, overwrite the collection.
-    }
-  ]).option({"allowDiskUse": true})
-  .then(() => {
-    console.timeEnd('bucket');
-  })
-  .catch((error) => {
-    console.error(error);
-  })
+let seedDatabase = async () => {
+  console.time('total');
+  console.log('Initalizing seeding mode');
+
+  let path = './db/documentBatch.json'
+
+  for (let batch = 0; batch < 20; batch++) {
+    writeProgress(batch, 20);
+    let newDocuments = JSON.stringify(createDocument());
+    await fs.writeFile(path, newDocuments);
+    await child_process.execSync('mongoimport --db=expressionists --collection=products --file=db/documentBatch.json --jsonArray');
+    await fs.unlink(path)
+    .then(() => {
+      console.log('Delted JSON');
+    })
+    .catch((err) => {
+      console.error(err)
+    })
+  };
+
+
+  endProgress();
+  console.log('Seeding resolved');
+  console.timeEnd('total');
+
 };
 
 seedDatabase();

@@ -1,10 +1,13 @@
+require('newrelic');
 const express = require('express');
 const app = express();
 const mongoose = require('mongoose');
 const db = require('./db/database.js');
 const cors = require('cors');
-const port = process.env.PORT || 8080
+const port = process.env.PORT || 8080;
+const compression = require('compression');
 
+app.use(compression());
 app.use(express.json());
 app.use(cors());
 
@@ -14,13 +17,12 @@ app.listen(port, () => {
 
 app.get('/similarItems/:productID/:filter/:filterValue?/:percent?', (req, res) => {
   let productID = Number(req.params.productID);
-  let id = {_id: productID}
-  let filter = `products.${req.params.filter}`;
+  let filter = req.params.filter;
   let methods = ['liked', 'isSale', 'isFresh'];
 
   let filterValue = req.params.filterValue;
 
-  // Checks to see if the filter request is part of the methods array, if it is, it will check the docuemnts for a value of true
+  // Checks to see if the filter request is part of the methods array, if it is, it will check the documents for a value of true
   if (methods.indexOf(req.params.filter) !== -1) {
     filterValue = true;
   };
@@ -37,23 +39,18 @@ app.get('/similarItems/:productID/:filter/:filterValue?/:percent?', (req, res) =
 
   let filtering = {};
   filtering[filter] = filterValue;
-  console.time('query'); // Times the query
+  filtering.productID = productID;
+
   db.Product.aggregate([
-    // Finds the document that matchs _id with the productID request
+    // Finds all the documents that match the specified properties and values
     {
-      $match: id
+      $match: filtering,
     },
-    // Expands the products array within the matched document into documents in order to search through
-    {
-      $unwind: '$products'
-    },
-    // Matches all documents from the previous unwind pipeline stage with the parameters within the request
-    {
-      $match: filtering
+    // Returns 16 random documents from the $match pipeline results
+    { $sample: {size: 16}
     }
   ])
   .then((result) => {
-    console.timeEnd('query');
     res.status(200);
     res.json(result);
   })
