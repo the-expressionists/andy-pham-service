@@ -47,7 +47,7 @@ let seedDatabase = async () => {
   console.time('total');
   console.log('Initalizing seeding mode');
 
-  let path = './db/documentBatch.json'
+  let path = './server/db/documentBatch.json'
 
   for (let batch = 0; batch < 20; batch++) {
     writeProgress(batch, 20);
