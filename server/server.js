@@ -1,8 +1,8 @@
-require('newrelic');
 const express = require('express');
 const app = express();
 const mongoose = require('mongoose');
-const db = require('./db/database.js');
+mongoose.connect(`mongodb://localhost/sdc-06`, {useNewUrlParser: true, useUnifiedTopology: true});
+const db = mongoose.connection;
 const cors = require('cors');
 const port = process.env.PORT || 8080;
 const compression = require('compression');
@@ -41,15 +41,7 @@ app.get('/similarItems/:productID/:filter/:filterValue?/:percent?', (req, res) =
   filtering[filter] = filterValue;
   filtering.productID = productID;
 
-  db.Product.aggregate([
-    // Finds all the documents that match the specified properties and values
-    {
-      $match: filtering,
-    },
-    // Returns 16 random documents from the $match pipeline results
-    { $sample: {size: 16}
-    }
-  ])
+  db.collection('products').aggregate([{$match: filtering}, {$sample: {size: 16}}]).toArray()
   .then((result) => {
     res.status(200);
     res.json(result);
